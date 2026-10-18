@@ -1,0 +1,3 @@
+[submodule "emmorph-perl"]
+	path = emmorph-perl
+	url = https://github.com/nytud/emmorph.git
