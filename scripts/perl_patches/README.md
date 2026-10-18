@@ -28,8 +28,9 @@ Affected scripts:
 
 ### `02_sort_keys_in_getsfxtags.diff` — fixes B4
 
-Wraps the `join` calls in `getsfxtags.pl` lines 89-92 with `sort` so the
-output of `%mcat` and `%dercat` is deterministic across runs.
+Emits `%mcat` and `%dercat` as key/value pairs sorted by key, so the
+output is deterministic across runs. Pairs stay intact (`sort keys`, then
+the value); a flat `sort(%hash)` would separate keys from values.
 
 ### `03_sort_keys_in_set_pl.diff` — fixes B1, B2
 
