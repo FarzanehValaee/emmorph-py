@@ -41,6 +41,9 @@ oracle/*_perl.out
 gen/
 hfst/
 
+# Downloaded by scripts/build_addendum_v0_2.py; the PDF embeds the face.
+scripts/fonts/
+
 # Build artifacts
 docs/*.aux
 docs/*.log

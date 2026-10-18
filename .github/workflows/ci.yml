@@ -1,5 +1,6 @@
 # emmorph-py CI pipeline
-# Four jobs: perl-syntax, perl-critic, reproducibility-test, differential-harness
+# Six jobs: perl-syntax, perl-critic, reproducibility-test, differential-harness,
+# intermediate-state, extrinsic-eval.
 # See docs/baseline_audit_report.pdf §6 for the design rationale.
 
 name: emmorph-ci
@@ -160,3 +161,81 @@ jobs:
 
       - name: Run pytest
         run: pytest tests/ -v --tb=short
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 5: Intermediate-state comparison (layer 2)
+  # Two seeded builds of `xlx`. Missing upstream scripts still stop the
+  # makefile, so a red result is a warning until those scripts exist.
+  # ─────────────────────────────────────────────────────────────────────────
+  intermediate-state:
+    runs-on: ubuntu-latest
+    needs: [reproducibility-test]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Perl and make
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends perl make
+
+      - name: Apply Perl patches
+        run: |
+          cd emmorph-perl
+          for p in ../scripts/perl_patches/*.diff; do
+            patch -p1 < "$p" || true
+          done
+
+      - name: Compare intermediate gen/ states
+        run: |
+          python harness/intermediate_state_diff.py --perl-dir emmorph-perl \
+            || echo "::warning::intermediate-state diff did not pass; missing scripts still block a clean xlx build"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 6: Extrinsic evaluation (layer 3)
+  # FST_B does not exist yet, so both sides are the Perl transducer.
+  # The job warns instead of failing until the Python port emits an FST.
+  # ─────────────────────────────────────────────────────────────────────────
+  extrinsic-eval:
+    runs-on: ubuntu-latest
+    needs: [differential-harness]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Perl, make, and hfst
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends perl make wget gnupg ca-certificates
+          wget -qO - https://apertium.projectjj.com/apt/apertium-packaging.pub | sudo gpg --dearmor -o /usr/share/keyrings/apertium.gpg
+          echo "deb [signed-by=/usr/share/keyrings/apertium.gpg] https://apertium.projectjj.com/apt nightly main" | sudo tee /etc/apt/sources.list.d/apertium.list
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends hfst || echo "::warning::hfst install failed"
+
+      - name: Clone emmorphpy
+        run: git clone --depth 1 https://github.com/nytud/emmorphpy.git ../emmorphpy
+
+      - name: Build FST_A
+        run: |
+          bash mak/mkemmorph.sh || echo "::warning::Perl FST build failed; extrinsic eval will have no transducer"
+        working-directory: emmorph-perl
+
+      - name: Fuzz a 1000-word corpus
+        run: python corpus/fuzz_corpus.py -n 1000 --seed 42 -o corpus/generated/fuzzed_forms.txt
+
+      - name: Compare FST_A with itself until FST_B exists
+        run: |
+          python harness/extrinsic_eval.py \
+            --corpus corpus/generated/fuzzed_forms.txt \
+            --fst-a emmorph-perl/hfst/hu.hfstol \
+            --fst-b emmorph-perl/hfst/hu.hfstol \
+            --emmorphpy-dir ../emmorphpy \
+            || echo "::warning::extrinsic eval did not pass; FST_B is not built yet and the Perl FST may be absent"
