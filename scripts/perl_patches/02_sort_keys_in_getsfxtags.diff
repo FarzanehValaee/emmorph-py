@@ -4,7 +4,9 @@
 # which is randomised on Perl >= 5.18. Three consecutive runs on the same
 # input produce three different orderings of the %mcat hash.
 #
-# Wrap the join() calls with sort() so the output is deterministic.
+# Emit %mcat and %dercat as sorted key/value pairs. sort(%hash) would
+# flatten the hash and sort keys and values together, which splits pairs;
+# map { ($_, $hash{$_}) } sort keys %hash keeps each pair intact.
 #
 # Apply from the emmorph-perl repository root:
 #   patch -p1 < ../scripts/perl_patches/02_sort_keys_in_getsfxtags.diff
@@ -18,7 +20,7 @@
 -print '%mcat=(\''.join('\',\'',%mcat)."');\n";
 -print '%dercat=(\''.join('\',\'',%dercat)."');\n";
 +print '$sfxtags=\'(?:'.join('|',sort keys %sfxtags).")(?=\$|[]+])';\n";
-+print '%mcat=(\''.join('\',\'',sort(%mcat))."');\n";
-+print '%dercat=(\''.join('\',\'',sort(%dercat))."');\n";
++print '%mcat=(\''.join('\',\'',map { ($_, $mcat{$_}) } sort keys %mcat)."');\n";
++print '%dercat=(\''.join('\',\'',map { ($_, $dercat{$_}) } sort keys %dercat)."');\n";
  print '$dertags=\'(?:'.join('|',map(quotemeta,sort keys %dercat)).")(?=\$|[]+])';\n";
  print "1;\n";

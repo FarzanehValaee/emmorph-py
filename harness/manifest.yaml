@@ -33,6 +33,8 @@ scripts:
     perl: pl/generic/bsort.pl
     python: pyemmorph.bsort
     args: [src/sfx.1]
+    env:
+      hpldir: .
     oracle: bsort_perl.out
     intentional_changes: []
 
@@ -40,6 +42,8 @@ scripts:
     perl: pl/generic/lcase.pl
     python: pyemmorph.lcase
     args: [src/sfx.1]
+    env:
+      hpldir: .
     oracle: lcase_perl.out
     intentional_changes: []
 
@@ -47,6 +51,9 @@ scripts:
     perl: pl/generic/sort.pl
     python: pyemmorph.sort
     args: [-q, src/rev.srt, src/sfx.1]
+    env:
+      hpldir: .
+      PL: pl/generic
     oracle: sort_perl.out
     intentional_changes: []
 

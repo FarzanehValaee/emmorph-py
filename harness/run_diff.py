@@ -60,7 +60,11 @@ def run_perl(
     stdin_data: Optional[str] = None,
 ) -> tuple[int, str, str]:
     """Run a Perl script with PERL_HASH_SEED=0."""
-    script_path = perl_dir / script
+    # absolute() keeps a `subst` drive letter. resolve() expands it back to
+    # the real path, which Strawberry Perl cannot open when that path
+    # contains non-ASCII characters.
+    script_path = (perl_dir / script).absolute()
+    perl_dir = perl_dir.absolute()
     if not script_path.exists():
         return 1, "", f"script not found: {script_path}"
 
@@ -105,7 +109,7 @@ def run_python(
     project_root = Path(__file__).parent.parent.resolve()
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = (
-        f"{project_root}:{existing}" if existing else str(project_root)
+        f"{project_root}{os.pathsep}{existing}" if existing else str(project_root)
     )
 
     try:

@@ -46,19 +46,21 @@ ORACLE_ENTRIES: List[Tuple[str, List[str], Dict[str, str], str]] = [
     (
         "pl/generic/bsort.pl",
         ["src/sfx.1"],
-        {},
+        {"hpldir": "."},
         "bsort_perl.out",
     ),
     (
         "pl/generic/lcase.pl",
         ["src/sfx.1"],
-        {},
+        {"hpldir": "."},
         "lcase_perl.out",
     ),
     (
         "pl/generic/sort.pl",
         ["-q", "src/rev.srt", "src/sfx.1"],
-        {},
+        # sort.pl shells out to bsort.pl; PL tells it where that script lives
+        # when the working directory is the repository root.
+        {"hpldir": ".", "PL": "pl/generic"},
         "sort_perl.out",
     ),
     # uniq.pl is a filter — input comes via stdin
@@ -100,7 +102,11 @@ def run_perl_script(
 
     Returns (exit_code, stdout, stderr).
     """
-    script_path = perl_dir / script
+    # absolute() keeps a `subst` drive letter. resolve() expands it back to
+    # the real path, which Strawberry Perl cannot open when that path
+    # contains non-ASCII characters.
+    script_path = (perl_dir / script).absolute()
+    perl_dir = perl_dir.absolute()
     if not script_path.exists():
         return 1, "", f"script not found: {script_path}"
 

@@ -121,8 +121,9 @@ def emit(sfxtags: set[str], mcat: dict[str, str], dercat: dict[str, str]) -> str
     out_lines: list[str] = []
 
     # $sfxtags='(?:tag1|tag2|...)(?=$|[]+])';
+    # Perl joins the raw tag names here (no quotemeta). Only $dertags is escaped.
     sorted_tags = sorted(sfxtags)
-    sfxtags_regex = "|".join(_escape_for_regex(t) for t in sorted_tags)
+    sfxtags_regex = "|".join(sorted_tags)
     out_lines.append(
         f"$sfxtags='(?:{sfxtags_regex})(?=$|[]+])';"
     )
@@ -141,8 +142,10 @@ def emit(sfxtags: set[str], mcat: dict[str, str], dercat: dict[str, str]) -> str
     out_lines.append(f"%dercat=({dercat_pairs});")
 
     # $dertags='(?:tag1|tag2|...)(?=$|[]+])';
+    # Perl: map(quotemeta, sort keys %dercat). quotemeta backslashes every
+    # character outside [A-Za-z0-9_], including '='.
     sorted_dertags = sorted(dercat.keys())
-    dertags_regex = "|".join(_escape_for_regex(t) for t in sorted_dertags)
+    dertags_regex = "|".join(_perl_quotemeta(t) for t in sorted_dertags)
     out_lines.append(
         f"$dertags='(?:{dertags_regex})(?=$|[]+])';"
     )
@@ -151,8 +154,17 @@ def emit(sfxtags: set[str], mcat: dict[str, str], dercat: dict[str, str]) -> str
     return "\n".join(out_lines) + "\n"
 
 
+def _perl_quotemeta(s: str) -> str:
+    """Mirror Perl ``quotemeta``: backslash every non-word byte.
+
+    Perl treats ``[A-Za-z0-9_]`` as word characters here, so ``=`` and ``*``
+    are escaped. Used for ``$dertags`` only; ``$sfxtags`` is joined raw.
+    """
+    return re.sub(r"([^A-Za-z0-9_])", r"\\\1", s)
+
+
 def _escape_for_regex(s: str) -> str:
-    """Escape regex metacharacters in a string. Mirrors Perl quotemeta."""
+    """Escape regex metacharacters. ``=`` is left alone; ``*`` is escaped."""
     return re.sub(r"([\\^$.|?*+()\[\]{}])", r"\\\1", s)
 
 
