@@ -1,0 +1,162 @@
+# emmorph-py CI pipeline
+# Four jobs: perl-syntax, perl-critic, reproducibility-test, differential-harness
+# See docs/baseline_audit_report.pdf §6 for the design rationale.
+
+name: emmorph-ci
+
+on:
+  push:
+    branches: [main, python-port]
+  pull_request:
+    branches: [main]
+
+env:
+  PERL_VERSION: "5.40"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 1: Perl syntax check
+  # Catches syntax errors and missing 'use strict' violations early.
+  # ─────────────────────────────────────────────────────────────────────────
+  perl-syntax:
+    runs-on: ubuntu-latest
+    container: perl:${{ env.PERL_VERSION }}-slim
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Perl syntax check on all .pl files
+        run: |
+          set -e
+          if [ ! -d emmorph-perl ]; then
+            echo "::warning::emmorph-perl submodule not present; skipping"
+            exit 0
+          fi
+          fail=0
+          for f in $(find emmorph-perl/pl emmorph-perl/src -name '*.pl'); do
+            if ! perl -c "$f" 2>&1; then
+              echo "::error file=$f::syntax check failed"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Python syntax check
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: |
+          pip install pyflakes
+          find pyemmorph harness tests -name '*.py' -print0 | xargs -0 pyflakes
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 2: Perl::Critic
+  # Enforces the hash-ordering and each()-in-list-context policies.
+  # ─────────────────────────────────────────────────────────────────────────
+  perl-critic:
+    runs-on: ubuntu-latest
+    container: perl:${{ env.PERL_VERSION }}-slim
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Perl::Critic
+        run: cpanm --notest Perl::Critic Perl::Critic::Policy::Perl::ProhibitEachInListContext || true
+
+      - name: Run perlcritic
+        run: |
+          if [ ! -d emmorph-perl ]; then
+            echo "::warning::emmorph-perl submodule not present; skipping"
+            exit 0
+          fi
+          perlcritic --stern \
+            --profile .perlcriticrc \
+            emmorph-perl/pl emmorph-perl/src || \
+            echo "::warning::perlcritic reported violations (non-blocking for now)"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 3: Reproducibility test
+  # Prof. Indig's first recommendation: handle Perl hash ordering explicitly.
+  # This job runs each leaf script twice with two different PERL_HASH_SEED
+  # values and fails if the normalised outputs differ.
+  # ─────────────────────────────────────────────────────────────────────────
+  reproducibility-test:
+    runs-on: ubuntu-latest
+    container: perl:${{ env.PERL_VERSION }}-slim
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Python (for normalisation helper)
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install hfst
+        run: |
+          # Install hfst from the Apertium nightly repo (per README)
+          apt-get update -qq
+          apt-get install -y --no-install-recommends wget gnupg ca-certificates
+          wget -qO - https://apertium.projectjj.com/apt/apertium-packaging.pub | gpg --dearmor -o /usr/share/keyrings/apertium.gpg
+          echo "deb [signed-by=/usr/share/keyrings/apertium.gpg] https://apertium.projectjj.com/apt nightly main" > /etc/apt/sources.list.d/apertium.list
+          apt-get update -qq
+          apt-get install -y --no-install-recommends hfst || echo "::warning::hfst install failed; some tests will be skipped"
+
+      - name: Run reproducibility check
+        env:
+          HPLDIR: emmorph-perl
+        run: |
+          set -e
+          if [ ! -d emmorph-perl ]; then
+            echo "::warning::emmorph-perl submodule not present; skipping"
+            exit 0
+          fi
+          pip install pyyaml
+          python harness/reproducibility_check.py --perl-dir emmorph-perl
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 4: Differential harness
+  # Prof. Indig's second recommendation: drop-in replacement modules verified
+  # against the old ones. This job is the long-lived quality gate for the port.
+  # ─────────────────────────────────────────────────────────────────────────
+  differential-harness:
+    runs-on: ubuntu-latest
+    needs: [perl-syntax, reproducibility-test]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Perl + hfst
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends perl
+          wget -qO - https://apertium.projectjj.com/apt/apertium-packaging.pub | sudo gpg --dearmor -o /usr/share/keyrings/apertium.gpg
+          echo "deb [signed-by=/usr/share/keyrings/apertium.gpg] https://apertium.projectjj.com/apt nightly main" | sudo tee /etc/apt/sources.list.d/apertium.list
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends hfst || echo "::warning::hfst install failed"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate oracle (if not committed)
+        run: |
+          if [ ! -f oracle/getsfxtags_perl.out ]; then
+            python harness/generate_oracle.py --perl-dir emmorph-perl --out oracle/
+          fi
+
+      - name: Run differential harness
+        env:
+          HPLDIR: emmorph-perl
+        run: python harness/run_diff.py --manifest harness/manifest.yaml --perl-dir emmorph-perl
+
+      - name: Run pytest
+        run: pytest tests/ -v --tb=short

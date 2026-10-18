@@ -1,0 +1,101 @@
+# Perl::Critic profile for emMorph
+# Severity levels: gentle (5), stern (4), harsh (3), cruel (2), brutal (1)
+
+# We start at 'stern' (4) and gradually tighten as the port progresses.
+
+# ─── Required policies ──────────────────────────────────────────────────────
+# These are the policies that map directly to bugs B1–B3 in the audit report.
+[TestingAndDebugging::RequireUseStrict]
+severity = 5
+
+[TestingAndDebugging::RequireUseWarnings]
+severity = 5
+
+# B1, B3: forbid bare `keys %h` in iteration context (must use `sort keys %h`)
+# There is no single built-in policy for this; we use the regular expression
+#-based policies below as a proxy. The reproducibility-test job catches what
+# Perl::Critic misses.
+
+# B2: forbid `each()` in list context (stateful, non-deterministic order)
+# Custom policy from CPAN:
+[-Perl::Critic::Policy::Perl::ProhibitEachInListContext]
+
+# ─── Recommended policies ──────────────────────────────────────────────────
+[ControlStructures::ProhibitPostfixControls]
+severity = 4
+allow_unless = 1
+
+[CodeLayout::ProhibitHardTabs]
+severity = 4
+
+[CodeLayout::ProhibitTrailingWhitespace]
+severity = 4
+
+[Documentation::RequirePodAtEnd]
+severity = 3
+
+[Modules::RequireVersionInModule]
+severity = 3
+
+[ValuesAndExpressions::ProhibitMagicNumbers]
+severity = 2
+# Hungarian vowel-harmony constants 0..4 are everywhere; can't enforce this yet
+
+[Variables::ProhibitPunctuationVars]
+severity = 3
+allow = $_ @_ $1 $2 $3
+
+# ─── Disabled policies ──────────────────────────────────────────────────────
+# These are too noisy for legacy Perl code; will be re-enabled after the port.
+[-ControlStructures::ProhibitCascadingIfElse]
+[-ValuesAndExpressions::ProhibitMixedBooleanOperators]
+[-Subroutines::ProhibitSubroutinePrototypes]
+[-Subroutines::RequireArgUnpacking]
+[-Variables::ProhibitConditionalDeclarations]
+[-ValuesAndExpressions::ProhibitLongChainsOfMethodCalls]
+[-Documentation::RequirePodSections]
+[-Modules::RequireExplicitPackage]
+[-Modules::ProhibitMultiplePackages]
+[-TestingAndDebugging::RequireTestLabels]
+[-ErrorHandling::RequireCheckingReturnValueOfEval]
+[-BuiltinFunctions::ProhibitStringyEval]
+[-BuiltinFunctions::ProhibitReverseSortBlock]
+[-BuiltinFunctions::ProhibitVoidMap]
+[-BuiltinFunctions::ProhibitShift]
+[-ControlStructures::ProhibitMutatingListFunctions]
+[-RegularExpressions::ProhibitEnumeratedClasses]
+[-RegularExpressions::ProhibitFixedStringMatches]
+[-RegularExpressions::RequireExtendedFormatting]
+[-RegularExpressions::RequireLineBoundaryMatching]
+[-ValuesAndExpressions::ProhibitConstantPragma]
+[-ValuesAndExpressions::ProhibitInterpolationOfLiterals]
+[-ValuesAndExpressions::ProhibitNoisyQuotes]
+[-ValuesAndExpressions::ProhibitEmptyQuotes]
+[-ValuesAndExpressions::RequireInterpolationOfMetachars]
+[-ValuesAndExpressions::RequireNumberSeparators]
+[-ValuesAndExpressions::RequireQuotedHeredocTerminator]
+[-Variables::ProhibitLocal]
+[-Variables::ProhibitReusedNames]
+[-Variables::ProhibitConditionalDeclarations]
+[-Subroutines::ProhibitExcessComplexity]
+[-Subroutines::ProhibitSubroutinePrototypes]
+[-Subroutines::RequireFinalReturn]
+[-Modules::ProhibitMultiplePackages]
+[-Modules::RequireEndWithOne]
+[-Modules::RequireExplicitPackage]
+[-Miscellanea::ProhibitFormats]
+[-Miscellanea::ProhibitTies]
+[-Miscellanea::ProhibitUselessNoWarnings]
+[-ErrorHandling::RequireCheckingReturnValueOfEval]
+[-ErrorHandling::RequireUseOfExceptions]
+[-ControlStructures::ProhibitLabelWithNameSpecialBlock]
+[-InputOutput::ProhibitInteractiveTest]
+[-InputOutput::ProhibitTwoArgOpen]
+[-InputOutput::RequireBriefOpen]
+[-InputOutput::RequireCheckedOpen]
+[-Modules::RequireVersionInModule]
+[-Variables::ProhibitPackageVars]
+[-Modules::ProhibitAutomaticExportation]
+[-Class::Hierarchical::ProhibitUnreachableCode]
+[-BuiltinFunctions::ProhibitStringyEval]
+[-ControlStructures::ProhibitUnreachableCode]

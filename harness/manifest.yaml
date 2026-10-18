@@ -1,0 +1,94 @@
+# harness/manifest.yaml
+#
+# Manifest of scripts in scope for the differential harness.
+# Each entry maps a Perl script to its Python port and lists:
+#   - the args/env to invoke it with
+#   - the oracle file to compare against (under oracle/)
+#   - the intentional_changes that the team has signed off on
+#
+# A script is considered "ported" when running the harness against it
+# produces zero diffs (or only INTENTIONAL_CHANGE diffs).
+
+scripts:
+  # ─── Leaf scripts (no dependencies on missing scripts) ───────────────────
+  # These are the first five to be ported (see §8 of the audit report).
+
+  - name: getsfxtags
+    perl: pl/mkavs/getsfxtags.pl
+    python: pyemmorph.getsfxtags
+    args: [src/sfx.1]
+    env:
+      hpldir: .
+    oracle: getsfxtags_perl.out
+    intentional_changes:
+      - kind: hash_ordering_fixed
+        description: "%mcat and %dercat keys now emitted in sorted order"
+        normalize: sort_keys
+      # The D==MN typo fix (B5) is pending Prof. Indig's decision.
+      # Once approved, uncomment the rule below to mark it intentional.
+      # - kind: typo_fix_D_double_equals
+      #   description: "Fixed 'D==MN' typo for FOK entry to 'D=MN'"
+
+  - name: bsort
+    perl: pl/generic/bsort.pl
+    python: pyemmorph.bsort
+    args: [src/sfx.1]
+    oracle: bsort_perl.out
+    intentional_changes: []
+
+  - name: lcase
+    perl: pl/generic/lcase.pl
+    python: pyemmorph.lcase
+    args: [src/sfx.1]
+    oracle: lcase_perl.out
+    intentional_changes: []
+
+  - name: sort
+    perl: pl/generic/sort.pl
+    python: pyemmorph.sort
+    args: [-q, src/rev.srt, src/sfx.1]
+    oracle: sort_perl.out
+    intentional_changes: []
+
+  - name: uniq
+    perl: pl/mkavs/uniq.pl
+    python: pyemmorph.uniq
+    args: []
+    stdin: |
+      alma
+      korte
+      alma
+      szilva
+      korte
+      korte
+      alma
+    oracle: uniq_perl.out
+    intentional_changes: []
+
+  # ─── Pending: scripts blocked by missing dependencies or B5/B6 ──────────
+  # Uncomment once the missing scripts are reverse-engineered and the
+  # Perl 5.26+ FindBin patches are applied.
+
+  # - name: metadict
+  #   perl: pl/generic/metadict.pl
+  #   python: pyemmorph.metadict
+  #   args: [-files=src/filesX.hpl, src/metadict.txt]
+  #   env:
+  #     hpldir: .
+  #   oracle: metadict_perl.out
+  #   normalize_extra:
+  #     - strip_timestamps
+  #   intentional_changes:
+  #     - kind: findbin_path_fix
+  #       description: "Path resolution now uses FindBin instead of @INC"
+
+  # - name: encode
+  #   perl: pl/generic/encode.pl
+  #   python: pyemmorph.encode
+  #   args: [-files=src/filesX.hpl, -store, -gen=X, -out=encodingX.hpl]
+  #   env:
+  #     hpldir: .
+  #   oracle: encode_perl.out
+  #   intentional_changes:
+  #     - kind: hash_ordering_fixed
+  #       description: "All 7 unsorted for(keys()) loops in encode.pl fixed"

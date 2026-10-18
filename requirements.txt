@@ -1,0 +1,19 @@
+# Python dependencies for emmorph-py
+# Install with: pip install -r requirements.txt
+
+# YAML parser for the manifest
+PyYAML>=6.0
+
+# Test runner
+pytest>=7.4
+pytest-cov>=4.1
+
+# Type checking (optional but recommended for the port)
+mypy>=1.7
+
+# Code formatting (optional)
+black>=23.12
+isort>=5.13
+
+# For the differential harness
+# (stdlib only: subprocess, difflib, pathlib)

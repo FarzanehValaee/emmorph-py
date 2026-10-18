@@ -1,0 +1,24 @@
+# 02_sort_keys_in_getsfxtags.diff — fixes B4
+#
+# B4 (Major): getsfxtags.pl emits %mcat and %dercat in hash iteration order,
+# which is randomised on Perl >= 5.18. Three consecutive runs on the same
+# input produce three different orderings of the %mcat hash.
+#
+# Wrap the join() calls with sort() so the output is deterministic.
+#
+# Apply from the emmorph-perl repository root:
+#   patch -p1 < ../scripts/perl_patches/02_sort_keys_in_getsfxtags.diff
+
+--- a/pl/mkavs/getsfxtags.pl
++++ b/pl/mkavs/getsfxtags.pl
+@@ -86,9 +86,9 @@
+ }
+
+-print '$sfxtags=\'(?:'.join('|',sort keys %sfxtags).")(?=\$|[]+])';\n";
+-print '%mcat=(\''.join('\',\'',%mcat)."');\n";
+-print '%dercat=(\''.join('\',\'',%dercat)."');\n";
++print '$sfxtags=\'(?:'.join('|',sort keys %sfxtags).")(?=\$|[]+])';\n";
++print '%mcat=(\''.join('\',\'',sort(%mcat))."');\n";
++print '%dercat=(\''.join('\',\'',sort(%dercat))."');\n";
+ print '$dertags=\'(?:'.join('|',map(quotemeta,sort keys %dercat)).")(?=\$|[]+])';\n";
+ print "1;\n";

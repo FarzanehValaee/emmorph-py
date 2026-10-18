@@ -1,0 +1,30 @@
+# 03_sort_keys_in_set_pl.diff — fixes B1 and B2
+#
+# B1 (Critical): set.pl:104 — equal2() compares two hashes by joining their
+# keys without sort. Two semantically equal hashes may compare as unequal
+# ~60% of the time on Perl >= 5.18 due to hash randomisation.
+#
+# B2 (Major): set.pl:78 — intersect() uses each(), which is stateful and
+# returns keys in non-deterministic order.
+#
+# Apply from the emmorph-perl repository root:
+#   patch -p1 < ../scripts/perl_patches/03_sort_keys_in_set_pl.diff
+
+--- a/pl/generic/set.pl
++++ b/pl/generic/set.pl
+@@ -75,7 +75,7 @@ sub intersect
+ 	my ($x,$y);
+ 	my (@c,%a);
+ 	for(@$a){$a{$_}++};
+ 	for(@$b){$a{$_}--};
+-	while(($x,$y)=each(%a)){push(@c,$x) if !$y}
++	for(sort(keys(%a))){push(@c,$_) if !$a{$_}}
+ 	return \@c;
+ }
+@@ -101,5 +101,5 @@ sub equal2
+ 	my (%a,%b);
+ 	@a{@$a}=();
+ 	@b{@$b}=();
+-	return join('\xff',keys(%a)) eq join('\xff',keys(%b));
++	return join('\xff',sort(keys(%a))) eq join('\xff',sort(keys(%b)));
+ }
